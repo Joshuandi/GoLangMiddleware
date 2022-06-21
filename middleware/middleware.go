@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"GoLangMiddleware/config"
-	"fmt"
 	"net/http"
 
 	"github.com/ilyakaznacheev/cleanenv"
@@ -19,7 +18,6 @@ func Auth(w http.ResponseWriter, r *http.Request) bool {
 		return false
 	}
 	isValid := (uname == cfg.Lusername) && (pass == cfg.Lpassword)
-	fmt.Println(cfg.Lusername, cfg.Lpassword)
 	if !isValid {
 		w.Write([]byte("Username or Password Incorrect "))
 		w.WriteHeader(401)
