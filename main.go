@@ -1,6 +1,7 @@
 package main
 
 import (
+	"GoLangMiddleware/config"
 	"GoLangMiddleware/database"
 	user_handler "GoLangMiddleware/handler"
 	"GoLangMiddleware/middleware"
@@ -11,10 +12,16 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/ilyakaznacheev/cleanenv"
 	_ "github.com/lib/pq"
+	"google.golang.org/api/idtoken"
 )
 
 var PORT = ":8088"
+var (
+	cfg                  config.Config
+	googleTokenValidator *idtoken.Validator
+)
 
 func main() {
 	database.Db, database.Err = sql.Open("postgres", ConnectDbPsql(
@@ -33,12 +40,16 @@ func main() {
 		panic(database.Err)
 	}
 	fmt.Println("Successfully Connect to Database")
+	_ = cleanenv.ReadConfig(".env", &cfg)
 
 	r := mux.NewRouter()
 	userHandler := user_handler.NewUserHandler(database.Db)
 	r.HandleFunc("/users", userHandler.UserLoginHandler)
 	r.HandleFunc("/users/{id}", userHandler.UserLoginHandler)
-	r.Use(loginMiddleware)
+
+	middleware := middleware.NewAuthMiddleware(&cfg, googleTokenValidator)
+	r.Use(middleware.GetToken)
+	//r.Use(middleware.LoginMiddleware)
 
 	fmt.Println("Now Loading on Port 0.0.0.0" + PORT)
 	srv := &http.Server{
@@ -49,21 +60,6 @@ func main() {
 		ReadTimeout:  15 * time.Second,
 	}
 	log.Fatal(srv.ListenAndServe())
-}
-
-func loginMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Println(r.Method, r.RequestURI, r.Body)
-		// userhandler := user_handler.NewUserHandler()
-		var check = middleware.Auth(w, r)
-		if check {
-			middleware.Auth(w, r)
-			next.ServeHTTP(w, r)
-		} else {
-			w.WriteHeader(401)
-			w.Write([]byte("ERROR DATA"))
-		}
-	})
 }
 
 func nothing(w http.ResponseWriter, r *http.Request) {
